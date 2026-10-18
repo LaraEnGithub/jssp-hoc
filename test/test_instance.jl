@@ -20,3 +20,19 @@ end
     # one machine: both bounds equal the total load
     @test compute_bounds(2, 1, [1, 1], [2, 3]) == (5, 5)
 end
+
+@testset "parse_int" begin
+    @test LSAJSSP.parse_int("42", "foo.txt", 1) == 42
+    @test LSAJSSP.parse_int("0", "foo.txt", 1) == 0
+    @test LSAJSSP.parse_int("-3", "foo.txt", 1) == -3
+
+    for bad in ["x", "1.5", "1e3", ""]
+        e = try
+            LSAJSSP.parse_int(bad, "foo.txt", 4)
+        catch err
+            err
+        end
+        @test e isa InstanceFormatError
+        @test (e.source, e.line) == ("foo.txt", 4)
+    end
+end

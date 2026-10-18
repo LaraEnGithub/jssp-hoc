@@ -57,3 +57,51 @@ function compute_bounds(n::Int, m::Int, machine::Vector{Int}, time::Vector{Int})
     upper_bound = sum(time)
     return lower_bound, upper_bound
 end
+
+"""
+    parse_int(token, source, line) -> Int
+
+Converts a piece of text to an integer. Throws an `InstanceFormatError` that points
+to `source` and `line` if the text is not an integer.
+"""
+function parse_int(token::AbstractString, source::String, line::Int)
+    value = tryparse(Int, token)
+    value === nothing && throw(InstanceFormatError(source, line, "'$token' is not an integer"))
+    return value
+end
+
+"""
+    read_rows(io) -> Vector{Tuple{Int,Vector{String}}}
+
+Splits the text into lines and each line into words (separated by any whitespace).
+Empty lines are skipped. Each row is returned as `(line number, words)`, where the
+line number is the one in the original text, empty lines included.
+"""
+function read_rows(io::IO)
+    rows = Tuple{Int,Vector{String}}[]
+    for (line, text) in enumerate(eachline(io))
+        words = String.(split(text))
+        isempty(words) || push!(rows, (line, words))
+    end
+    return rows
+end
+
+"""
+    parse_header(rows, source) -> (n, m, cu_file, ci_file)
+
+Reads the header `n m cu ci` from the first row. Throws an `InstanceFormatError`
+if there is no header, it does not have exactly four integers, or `n` or `m`
+is not positive.
+"""
+function parse_header(rows::Vector{Tuple{Int,Vector{String}}}, source::String)
+    isempty(rows) && throw(InstanceFormatError(source, 1, "empty file"))
+
+    line, words = rows[1]
+    length(words) == 4 ||
+        throw(InstanceFormatError(source, line, "header must be 'n m cu ci', found $(length(words)) values"))
+
+    n, m, cu_file, ci_file = [parse_int(w, source, line) for w in words]
+    n > 0 || throw(InstanceFormatError(source, line, "n must be positive"))
+    m > 0 || throw(InstanceFormatError(source, line, "m must be positive"))
+    return n, m, cu_file, ci_file
+end
