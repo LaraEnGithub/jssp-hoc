@@ -105,3 +105,42 @@ function parse_header(rows::Vector{Tuple{Int,Vector{String}}}, source::String)
     m > 0 || throw(InstanceFormatError(source, line, "m must be positive"))
     return n, m, cu_file, ci_file
 end
+
+"""
+    parse_jobs(rows, n, m, source) -> (job, pos, machine, time)
+
+Reads the `n` job rows that follow the header. Throws an `InstanceFormatError` pointing to the
+offending line if the rows do not follow this format.
+"""
+function parse_jobs(rows::Vector{Tuple{Int,Vector{String}}}, n::Int, m::Int, source::String)
+    if length(rows) - 1 != n
+        line = length(rows) > n + 1 ? rows[n + 2][1] : rows[end][1]
+        throw(InstanceFormatError(source, line, "expected $n job rows, found $(length(rows) - 1)"))
+    end
+
+    job = Vector{Int}(undef, n * m)
+    pos = Vector{Int}(undef, n * m)
+    machine = Vector{Int}(undef, n * m)
+    time = Vector{Int}(undef, n * m)
+
+    for i in 1:n
+        line, words = rows[i + 1]
+        length(words) == 2m ||
+            throw(InstanceFormatError(source, line, "expected $(2m) values ($m pairs), found $(length(words))"))
+
+        for j in 1:m
+            u = (i - 1) * m + j
+            k = parse_int(words[2j - 1], source, line)
+            p = parse_int(words[2j], source, line)
+            0 <= k < m || throw(InstanceFormatError(source, line, "machine $k is outside 0..$(m - 1)"))
+            p >= 0 || throw(InstanceFormatError(source, line, "processing time $p is negative"))
+
+            job[u] = i
+            pos[u] = j
+            machine[u] = k + 1
+            time[u] = p
+        end
+    end
+
+    return job, pos, machine, time
+end
