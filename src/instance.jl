@@ -28,3 +28,32 @@ struct Instance
     lower_bound::Int       # lower bound computed from the data
     upper_bound::Int       # upper bound computed from the data
 end
+
+"""
+    compute_bounds(n, m, machine, time) -> (lower_bound, upper_bound)
+
+Bounds on the makespan of any schedule.
+
+- The upper bound is the sum of all processing times (everything done one after another).
+- The lower bound is the larger of the longest job (its operations run in sequence)
+  and the busiest machine (it processes one operation at a time).
+
+`machine` and `time` have one entry per operation; the operations of job i are
+the entries (i - 1) * m + 1 to i * m.
+"""
+function compute_bounds(n::Int, m::Int, machine::Vector{Int}, time::Vector{Int})
+    longest_job = 0
+    for i in 1:n
+        first = (i - 1) * m + 1
+        longest_job = max(longest_job, sum(@view time[first:first + m - 1]))
+    end
+
+    machine_load = zeros(Int, m)
+    for u in eachindex(time)
+        machine_load[machine[u]] += time[u]
+    end
+
+    lower_bound = max(longest_job, maximum(machine_load))
+    upper_bound = sum(time)
+    return lower_bound, upper_bound
+end
