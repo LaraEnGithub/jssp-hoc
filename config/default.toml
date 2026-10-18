@@ -1,0 +1,4 @@
+# config/default.toml --- LSA-JSSP
+
+[instance]
+path = "instances/example_3x3.txt"
