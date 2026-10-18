@@ -1,5 +1,7 @@
 module LSAJSSP
 
-# include("instancia.jl")
+include("instance.jl")
+
+export InstanceFormatError
 
 end

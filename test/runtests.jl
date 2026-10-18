@@ -2,5 +2,5 @@ using Test
 using LSAJSSP
 
 @testset "LSAJSSP" begin
-    @test LSAJSSP isa Module
+    include("test_instance.jl")
 end
