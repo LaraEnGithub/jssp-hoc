@@ -23,8 +23,8 @@ struct Instance
     pos::Vector{Int}       # position of each operation inside its job (1..m)
     machine::Vector{Int}   # machine that processes each operation (1..m)
     time::Vector{Int}      # processing time of each operation
-    ci_file::Int           # lower bound written in the file header
-    cu_file::Int           # upper bound written in the file header
+    ci_file::Union{Int,Nothing}   # lower bound written in the file header, if any
+    cu_file::Union{Int,Nothing}   # upper bound written in the file header, if any
     lower_bound::Int       # lower bound computed from the data
     upper_bound::Int       # upper bound computed from the data
 end
@@ -89,20 +89,23 @@ end
 """
     parse_header(rows, source) -> (n, m, cu_file, ci_file)
 
-Reads the header `n m cu ci` from the first row. Throws an `InstanceFormatError`
-if there is no header, it does not have exactly four integers, or `n` or `m`
-is not positive.
+Reads the header from the first row. It is either `n m` or `n m cu ci`; `cu_file`
+and `ci_file` are `nothing` when the header does not have them. Throws an
+`InstanceFormatError` if there is no header, it does not have two or four integers,
+or `n` or `m` is not positive.
 """
 function parse_header(rows::Vector{Tuple{Int,Vector{String}}}, source::String)
     isempty(rows) && throw(InstanceFormatError(source, 1, "empty file"))
 
     line, words = rows[1]
-    length(words) == 4 ||
-        throw(InstanceFormatError(source, line, "header must be 'n m cu ci', found $(length(words)) values"))
+    length(words) in (2, 4) ||
+        throw(InstanceFormatError(source, line, "header must be 'n m' or 'n m cu ci', found $(length(words)) values"))
 
-    n, m, cu_file, ci_file = [parse_int(w, source, line) for w in words]
+    values = [parse_int(w, source, line) for w in words]
+    n, m = values[1], values[2]
     n > 0 || throw(InstanceFormatError(source, line, "n must be positive"))
     m > 0 || throw(InstanceFormatError(source, line, "m must be positive"))
+    cu_file, ci_file = length(values) == 4 ? (values[3], values[4]) : (nothing, nothing)
     return n, m, cu_file, ci_file
 end
 
@@ -151,12 +154,12 @@ end
 """
     parse_instance(io, name) -> Instance
 
-Reads an instance in the text format `n m cu ci` followed by one row per job with
+Reads an instance in the text format `n m [cu ci]` followed by one row per job with
 `m` pairs `machine time`. `name` identifies the instance in error messages.
 Throws an `InstanceFormatError` if the text does not follow the format.
 
 Prints a warning, but does not fail, if some job visits a machine more than once
-or if the lower bound computed from the data differs from the one in the header.
+or if the header has a lower bound and it differs from the one computed from the data.
 """
 function parse_instance(io::IO, name::AbstractString)
     source = String(name)
@@ -169,7 +172,7 @@ function parse_instance(io::IO, name::AbstractString)
     end
 
     lower_bound, upper_bound = compute_bounds(n, m, machine, time)
-    if lower_bound != ci_file
+    if ci_file !== nothing && lower_bound != ci_file
         @warn "$source: computed lower bound $lower_bound differs from the header value $ci_file"
     end
 
