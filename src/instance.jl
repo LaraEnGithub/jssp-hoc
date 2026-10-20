@@ -109,7 +109,10 @@ end
 """
     parse_jobs(rows, n, m, source) -> (job, pos, machine, time)
 
-Reads the `n` job rows that follow the header. Throws an `InstanceFormatError` pointing to the
+Reads the `n` job rows that follow the header. Each row must have `m` pairs
+`machine time`, with the machine in `0..m-1` and a non-negative integer time.
+Returns the vectors `job`, `pos`, `machine` (converted to `1..m`) and `time`,
+with one entry per operation. Throws an `InstanceFormatError` pointing to the
 offending line if the rows do not follow this format.
 """
 function parse_jobs(rows::Vector{Tuple{Int,Vector{String}}}, n::Int, m::Int, source::String)
@@ -143,4 +146,43 @@ function parse_jobs(rows::Vector{Tuple{Int,Vector{String}}}, n::Int, m::Int, sou
     end
 
     return job, pos, machine, time
+end
+
+"""
+    parse_instance(io, name) -> Instance
+
+Reads an instance in the text format `n m cu ci` followed by one row per job with
+`m` pairs `machine time`. `name` identifies the instance in error messages.
+Throws an `InstanceFormatError` if the text does not follow the format.
+
+Prints a warning, but does not fail, if some job visits a machine more than once
+or if the lower bound computed from the data differs from the one in the header.
+"""
+function parse_instance(io::IO, name::AbstractString)
+    source = String(name)
+    rows = read_rows(io)
+    n, m, cu_file, ci_file = parse_header(rows, source)
+    job, pos, machine, time = parse_jobs(rows, n, m, source)
+
+    if any(i -> length(unique(@view machine[(i - 1) * m + 1:i * m])) < m, 1:n)
+        @warn "$source: some job visits the same machine more than once"
+    end
+
+    lower_bound, upper_bound = compute_bounds(n, m, machine, time)
+    if lower_bound != ci_file
+        @warn "$source: computed lower bound $lower_bound differs from the header value $ci_file"
+    end
+
+    return Instance(source, n, m, n * m, job, pos, machine, time,
+                    ci_file, cu_file, lower_bound, upper_bound)
+end
+
+"""
+    read_instance(path) -> Instance
+
+Reads the instance stored in the file at `path`.
+"""
+function read_instance(path::AbstractString)
+    name = splitext(basename(path))[1]
+    return open(io -> parse_instance(io, name), path)
 end
