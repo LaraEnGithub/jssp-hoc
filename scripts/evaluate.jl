@@ -1,10 +1,19 @@
-# Usage (from the project folder):
+# Usage:
 #   julia --project scripts/evaluate.jl instances/example_3x3.txt
-#
-# Evaluates the operation chain that processes the jobs one after another
-# (every operation of job 1, then every operation of job 2, ...).
 
 using LSAJSSP
+
+"""
+    format_machine_chain(inst, mchain) -> String
+
+Writes a machine chain as a list of lists, one machine per line. Operation j of
+job i is written O(i,j).
+"""
+function format_machine_chain(inst::Instance, mchain::Vector{Vector{Int}})
+    op_name(u) = "O($(inst.job[u]),$(inst.pos[u]))"
+    lines = ["(" * join(op_name.(ops), ", ") * ")" for ops in mchain]
+    return "[" * join(lines, ",\n ") * "]"
+end
 
 function main(args)
     if length(args) != 1
@@ -25,6 +34,9 @@ function main(args)
     else
         println("Feasible:  no (", e.cycle_nodes, " operations in cycles)")
     end
+
+    println("Machine chain:")
+    println(format_machine_chain(inst, machine_chain(inst, op_chain)))
 end
 
 main(ARGS)
