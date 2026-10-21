@@ -36,3 +36,48 @@ end
         @test (e.source, e.line) == ("foo.txt", 4)
     end
 end
+
+# Returns the exception thrown by f(), or nothing if it does not throw.
+function thrown(f)
+    try
+        f()
+    catch e
+        return e
+    end
+    return nothing
+end
+
+const INSTANCES = joinpath(@__DIR__, "..", "instances")
+
+@testset "parse_instance" begin
+    # 3x3 example
+    inst = parse_instance(IOBuffer("3 3 24 10\n0 3 1 3 2 3\n0 2 2 3 1 4\n1 3 0 2 2 1\n"), "example")
+    @test inst.name == "example"
+    @test (inst.n, inst.m, inst.n_ops) == (3, 3, 9)
+    @test (inst.cu_file, inst.ci_file) == (24, 10)
+    @test inst.job == [1, 1, 1, 2, 2, 2, 3, 3, 3]
+    @test inst.pos == [1, 2, 3, 1, 2, 3, 1, 2, 3]
+    @test inst.machine == [1, 2, 3, 1, 3, 2, 2, 1, 3]   # the file uses 0-based machines
+    @test inst.time == [3, 3, 3, 2, 3, 4, 3, 2, 1]
+    @test (inst.lower_bound, inst.upper_bound) == (10, 24)
+
+    errors = [("", 1),
+              ("1\n", 1),                         # header with one value
+              ("1 2 5\n", 1),                     # header with three values
+              ("1 x\n0 1 1 1\n", 1),              # not an integer in the header
+              ("0 2 5 3\n", 1),                   # n = 0
+              ("2 2 5 3\n0 1 1 1\n", 2),          # a job row is missing
+              ("1 2 5 3\n0 1 1 1\n0 1 1 1\n", 3), # an extra job row
+              ("1 2 5 3\n0 1 1\n", 2),            # incomplete pair
+              ("1 2 5 3\n0 1 2 1\n", 2),          # machine out of range
+              ("1 2 5 3\n0 1 1 -1\n", 2),         # negative time
+              ("1 2 5 3\n0 1 1 x\n", 2),          # not an integer
+              ("1 2 5 3\n\n0 1 1 x\n", 3)]        # empty lines count in the numbering
+    for (text, line) in errors
+        e = thrown(() -> parse_instance(IOBuffer(text), "test"))
+        @test e isa InstanceFormatError
+        @test e.line == line
+    end
+
+    @test_throws SystemError read_instance(joinpath(INSTANCES, "does_not_exist.txt"))
+end
