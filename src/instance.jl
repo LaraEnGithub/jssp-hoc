@@ -34,7 +34,9 @@ end
 
 Bounds on the makespan of any schedule.
 
-- The upper bound is the sum of all processing times (everything done one after another).
+- The upper bound is the makespan of a simple schedule: first the 1st operation of
+  every job, then the 2nd, and so on, each one started as early as its job and its
+  machine allow. Inside each round the jobs go in order 1..n.
 - The lower bound is the larger of the longest job (its operations run in sequence)
   and the busiest machine (it processes one operation at a time).
 
@@ -54,7 +56,18 @@ function compute_bounds(n::Int, m::Int, machine::Vector{Int}, time::Vector{Int})
     end
 
     lower_bound = max(longest_job, maximum(machine_load))
-    upper_bound = sum(time)
+    job_end = zeros(Int, n)
+    machine_end = zeros(Int, m)
+    for j in 1:m
+        for i in 1:n
+            u = (i - 1) * m + j
+            k = machine[u]
+            finish = max(job_end[i], machine_end[k]) + time[u]
+            job_end[i] = finish
+            machine_end[k] = finish
+        end
+    end
+    upper_bound = maximum(job_end)
     return lower_bound, upper_bound
 end
 
