@@ -34,9 +34,7 @@ end
 
 Bounds on the makespan of any schedule.
 
-- The upper bound is the makespan of a simple schedule: first the 1st operation of
-  every job, then the 2nd, and so on, each one started as early as its job and its
-  machine allow. Inside each round the jobs go in order 1..n.
+- The upper bound is the makespan of a simple schedule
 - The lower bound is the larger of the longest job (its operations run in sequence)
   and the busiest machine (it processes one operation at a time).
 
@@ -172,7 +170,7 @@ Reads an instance in the text format `n m [cu ci]` followed by one row per job w
 Throws an `InstanceFormatError` if the text does not follow the format.
 
 Prints a warning, but does not fail, if some job visits a machine more than once
-or if the header has a lower bound and it differs from the one computed from the data.
+or if the header has bounds and they differ from the ones computed from the data.
 """
 function parse_instance(io::IO, name::AbstractString)
     source = String(name)
@@ -187,6 +185,9 @@ function parse_instance(io::IO, name::AbstractString)
     lower_bound, upper_bound = compute_bounds(n, m, machine, time)
     if ci_file !== nothing && lower_bound != ci_file
         @warn "$source: computed lower bound $lower_bound differs from the header value $ci_file"
+    end
+    if cu_file !== nothing && upper_bound != cu_file
+        @warn "$source: computed upper bound $upper_bound differs from the header value $cu_file"
     end
 
     return Instance(source, n, m, n * m, job, pos, machine, time,

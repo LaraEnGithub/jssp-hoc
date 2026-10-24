@@ -1,4 +1,4 @@
-const EXAMPLE_3X3 = "3 3 24 10\n0 3 1 3 2 3\n0 2 2 3 1 4\n1 3 0 2 2 1\n"
+const EXAMPLE_3X3 = "3 3 12 10\n0 3 1 3 2 3\n0 2 2 3 1 4\n1 3 0 2 2 1\n"
 
 @testset "machine_chain" begin
     inst = parse_instance(IOBuffer(EXAMPLE_3X3), "example")
