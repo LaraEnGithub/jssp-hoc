@@ -7,7 +7,7 @@ using LSAJSSP
     format_solution(inst, mchain, e) -> String
 
 Writes a solution in the working format: one line per machine with the operations
-as `[job, pos, time]` (0-based), followed by the makespan, cycles, bounds and cost.
+as `[job, pos, time]`
 """
 function format_solution(inst::Instance, mchain::Vector{Vector{Int}}, e::Evaluation)
     op_text(u) = "[$(inst.job[u] - 1), $(inst.pos[u] - 1), $(inst.time[u])], "
@@ -24,7 +24,7 @@ function main(args)
     end
 
     inst = read_instance(args[1])
-    decode = decode_operations
+    decode = decode_repetition
     x, e = lsa(inst; decode = decode)
     println(format_solution(inst, machine_chain(inst, decode(inst, x)), e))
 end
