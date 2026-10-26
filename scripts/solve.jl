@@ -25,7 +25,7 @@ function main(args)
 
     inst = read_instance(args[1])
     decode = decode_repetition
-    x, e = lsa(inst; decode = decode)
+    x, e = lsa(inst; decode = decode, probe_directions = false)
     println(format_solution(inst, machine_chain(inst, decode(inst, x)), e))
 end
 

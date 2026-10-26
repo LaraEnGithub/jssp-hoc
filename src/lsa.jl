@@ -60,13 +60,15 @@ function move_space(x::Vector{Float64}, leader::Vector{Float64}, rng::AbstractRN
 end
 
 """
-    lsa(inst; decode, n_projectiles, max_iterations, seed) -> (x, Evaluation)
+    lsa(inst; decode, n_projectiles, max_iterations, seed, probe_directions) -> (x, Evaluation)
 
 Runs the lightning search algorithm on `inst`. Returns the best vector of keys found
 and its evaluation. `decode` turns a vector of keys into an operation chain.
+If `probe_directions` is false, the directions of the leader are drawn at random
+each iteration instead of probing every key.
 """
 function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 50,
-             max_iterations::Int = 500, seed::Int = 42)
+             max_iterations::Int = 500, seed::Int = 42, probe_directions::Bool = true)
     rng = Xoshiro(seed)
     f(x) = evaluate(inst, decode(inst, x)).f
 
@@ -86,7 +88,11 @@ function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 50
 
         l = argmin(F)
         leader = copy(X[l])
-        update_directions!(dir, leader, F[l], f)
+        if probe_directions
+            update_directions!(dir, leader, F[l], f)
+        else
+            rand!(rng, dir, [-1, 1])
+        end
         sigma = energy(t, max_iterations) * 0.01
 
         for i in eachindex(X)
