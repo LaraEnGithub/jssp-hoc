@@ -39,3 +39,12 @@ function update_directions!(dir::Vector{Int}, leader::Vector{Float64}, f_leader:
     end
     return dir
 end
+
+"""
+    move_leader(leader, dir, sigma, rng) -> Vector{Float64}
+
+New position of the leader: each key takes a normal step of size `sigma` in its direction.
+"""
+function move_leader(leader::Vector{Float64}, dir::Vector{Int}, sigma::Float64, rng::AbstractRNG)
+    return [leader[d] + dir[d] * abs(sigma * randn(rng)) for d in eachindex(leader)]
+end
