@@ -67,8 +67,8 @@ and its evaluation. `decode` turns a vector of keys into an operation chain.
 If `probe_directions` is false, the directions of the leader are drawn at random
 each iteration instead of probing every key.
 """
-function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 50,
-             max_iterations::Int = 500, seed::Int = 42, probe_directions::Bool = true)
+function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 75,
+             max_iterations::Int = 1000, seed::Int = 67, probe_directions::Bool = false)
     rng = Xoshiro(seed)
     f(x) = evaluate(inst, decode(inst, x)).f
 
