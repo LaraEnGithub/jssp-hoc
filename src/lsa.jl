@@ -58,3 +58,59 @@ leader's key, a random distance whose mean is the distance between them.
 function move_space(x::Vector{Float64}, leader::Vector{Float64}, rng::AbstractRNG)
     return [x[d] + (leader[d] - x[d]) * randexp(rng) for d in eachindex(x)]
 end
+
+"""
+    lsa(inst; decode, n_projectiles, max_iterations, seed) -> (x, Evaluation)
+
+Runs the lightning search algorithm on `inst`. Returns the best vector of keys found
+and its evaluation. `decode` turns a vector of keys into an operation chain.
+"""
+function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 50,
+             max_iterations::Int = 500, seed::Int = 42)
+    rng = Xoshiro(seed)
+    f(x) = evaluate(inst, decode(inst, x)).f
+
+    X = [rand(rng, inst.n_ops) for _ in 1:n_projectiles]   # projectiles
+    F = [f(x) for x in X]                                   # their costs
+    dir = rand(rng, [-1, 1], inst.n_ops)
+    channel_time = 0
+
+    for t in 1:max_iterations
+        # every 10 iterations the worst projectile is replaced by a copy of the best
+        channel_time += 1
+        if channel_time >= 10
+            worst, best = argmax(F), argmin(F)
+            X[worst], F[worst] = copy(X[best]), F[best]
+            channel_time = 0
+        end
+
+        l = argmin(F)
+        leader = copy(X[l])
+        update_directions!(dir, leader, F[l], f)
+        sigma = energy(t, max_iterations) * 0.01
+
+        for i in eachindex(X)
+            if X[i] == leader
+                x_new = move_leader(leader, dir, sigma, rng)
+            else
+                x_new = move_space(X[i], leader, rng)
+            end
+            keep_in_bounds!(x_new, rng)
+            f_new = f(x_new)
+            if f_new < F[i]
+                X[i], F[i] = x_new, f_new
+                # forking: sometimes also try the opposite position
+                if rand(rng) < 0.01
+                    x_opp = 1 .- x_new
+                    f_opp = f(x_opp)
+                    if f_opp < F[i]
+                        X[i], F[i] = x_opp, f_opp
+                    end
+                end
+            end
+        end
+    end
+
+    best = argmin(F)
+    return X[best], evaluate(inst, decode(inst, X[best]))
+end
