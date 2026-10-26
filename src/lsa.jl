@@ -48,3 +48,13 @@ New position of the leader: each key takes a normal step of size `sigma` in its 
 function move_leader(leader::Vector{Float64}, dir::Vector{Int}, sigma::Float64, rng::AbstractRNG)
     return [leader[d] + dir[d] * abs(sigma * randn(rng)) for d in eachindex(leader)]
 end
+
+"""
+    move_space(x, leader, rng) -> Vector{Float64}
+
+New position of a projectile that is not the leader: each key jumps toward the
+leader's key, a random distance whose mean is the distance between them.
+"""
+function move_space(x::Vector{Float64}, leader::Vector{Float64}, rng::AbstractRNG)
+    return [x[d] + (leader[d] - x[d]) * randexp(rng) for d in eachindex(x)]
+end
