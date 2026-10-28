@@ -6,13 +6,13 @@
 end
 
 @testset "compute_bounds" begin
-    # 3x3 example: longest job = 9, busiest machine (M2) = 10, round-by-round schedule = 12
+    # 3x3 example: longest job = 9, busiest machine (M2) = 10, total = 24
     machine = [1, 2, 3, 1, 3, 2, 2, 1, 3]
     time = [3, 3, 3, 2, 3, 4, 3, 2, 1]
-    @test compute_bounds(3, 3, machine, time) == (10, 12)
+    @test compute_bounds(3, 3, machine, time) == (10, 24)
 
     # the longest job wins over the busiest machine (10 > 6)
-    @test compute_bounds(2, 2, [1, 2, 1, 2], [5, 5, 1, 1]) == (10, 11)
+    @test compute_bounds(2, 2, [1, 2, 1, 2], [5, 5, 1, 1]) == (10, 12)
 
     # one job: both bounds equal the job length
     @test compute_bounds(1, 2, [1, 2], [2, 1]) == (3, 3)
@@ -58,7 +58,7 @@ const INSTANCES = joinpath(@__DIR__, "..", "instances")
     @test inst.pos == [1, 2, 3, 1, 2, 3, 1, 2, 3]
     @test inst.machine == [1, 2, 3, 1, 3, 2, 2, 1, 3]   # the file uses 0-based machines
     @test inst.time == [3, 3, 3, 2, 3, 4, 3, 2, 1]
-    @test (inst.lower_bound, inst.upper_bound) == (10, 12)
+    @test (inst.lower_bound, inst.upper_bound) == (10, 24)
 
     errors = [("", 1),
               ("1\n", 1),                         # header with one value
