@@ -51,24 +51,26 @@ end
 function main(args)
     options = parse_options(args)
     if options === nothing
-        println(stderr, "usage: julia --project scripts/experiment.jl <instance.txt> [--seeds k]")
+        println(stderr, "usage: julia --project scripts/experiment.jl <instance.txt> [--seeds k] ",
+                "[--n N] [--t T] [--kappa κ] [--channel c] [--fork p]")
         exit(1)
     end
-    path, seeds = options
-    n, t = 50, 500
 
-    inst = read_instance(path)
+    inst = read_instance(options.path)
     # a tiny run first, so that compiling does not count in the time of seed 1
     lsa(inst; decode = decode_repetition, n_projectiles = 2, max_iterations = 2, probe_directions = false)
 
-    println("# $(inst.name) seeds=$seeds n=$n t=$t decoder=repetition probe=false")
+    println("# $(inst.name) seeds=$(options.seeds) n=$(options.n) t=$(options.t) kappa=$(options.kappa) ",
+            "channel=$(options.channel) fork=$(options.fork) decoder=repetition probe=false")
     println("seed,makespan,cycles,cost,seconds")
-    for seed in 1:seeds
-        seconds = @elapsed x, e = lsa(inst; decode = decode_repetition, n_projectiles = n,
-                                      max_iterations = t, seed = seed, probe_directions = false)
+    for seed in 1:options.seeds
+        seconds = @elapsed x, e = lsa(inst; decode = decode_repetition, probe_directions = false,
+                                      n_projectiles = options.n, max_iterations = options.t, seed = seed,
+                                      kappa = options.kappa, max_channel_time = options.channel,
+                                      fork_probability = options.fork)
         println("$seed,$(e.makespan),$(e.cycle_nodes),$(e.f),$(round(seconds, digits = 3))")
         flush(stdout)
-        println(stderr, "$seed/$seeds   makespan $(e.makespan)   $(round(seconds, digits = 1)) s")
+        println(stderr, "$seed/$(options.seeds)   makespan $(e.makespan)   $(round(seconds, digits = 1)) s")
     end
 end
 
