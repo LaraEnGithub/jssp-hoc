@@ -2,33 +2,50 @@
 #   julia --project scripts/experiment.jl instances/JSSP_40_40.txt [--seeds k] > results/seeds.csv
 #
 # Runs the LSA with seeds 1..k (10 by default) and writes one CSV row per seed.
+# Other options: --n N (50), --t T (500), --kappa κ (0.01), --channel c (10), --fork p (0.01)
 
 using LSAJSSP
 
 """
-    parse_options(args) -> (path, seeds) or nothing
+    parse_options(args) -> NamedTuple or nothing
 
-Reads the instance path and the number of seeds (10 if `--seeds` is not given).
-Returns `nothing` if the arguments are not valid.
+Reads the instance path and the options. Options that are not given keep their
+default value. Returns `nothing` if the arguments are not valid.
 """
 function parse_options(args::Vector{String})
-    path, seeds = nothing, 10
+    path = nothing
+    seeds, n, t, kappa, channel, fork = 10, 50, 500, 0.01, 10, 0.01
     k = 1
     while k <= length(args)
-        if args[k] == "--seeds" && k < length(args)
+        flag = args[k]
+        if flag in ("--seeds", "--n", "--t", "--channel") && k < length(args)
             number = tryparse(Int, args[k + 1])
             (number === nothing || number < 1) && return nothing
-            seeds = number
+            flag == "--seeds" && (seeds = number)
+            flag == "--n" && (n = number)
+            flag == "--t" && (t = number)
+            flag == "--channel" && (channel = number)
             k += 2
-        elseif !startswith(args[k], "--") && path === nothing
-            path = args[k]
+        elseif flag in ("--kappa", "--fork") && k < length(args)
+            number = tryparse(Float64, args[k + 1])
+            (number === nothing || number < 0) && return nothing
+            if flag == "--kappa"
+                kappa = number
+            elseif number <= 1
+                fork = number
+            else
+                return nothing
+            end
+            k += 2
+        elseif !startswith(flag, "--") && path === nothing
+            path = flag
             k += 1
         else
             return nothing
         end
     end
     path === nothing && return nothing
-    return path, seeds
+    return (path = path, seeds = seeds, n = n, t = t, kappa = kappa, channel = channel, fork = fork)
 end
 
 function main(args)
