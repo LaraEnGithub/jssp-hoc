@@ -50,10 +50,10 @@ const INSTANCES = joinpath(@__DIR__, "..", "instances")
 
 @testset "parse_instance" begin
     # 3x3 example
-    inst = parse_instance(IOBuffer("3 3 12 10\n0 3 1 3 2 3\n0 2 2 3 1 4\n1 3 0 2 2 1\n"), "example")
+    inst = parse_instance(IOBuffer("3 3 24 10\n0 3 1 3 2 3\n0 2 2 3 1 4\n1 3 0 2 2 1\n"), "example")
     @test inst.name == "example"
     @test (inst.n, inst.m, inst.n_ops) == (3, 3, 9)
-    @test (inst.cu_file, inst.ci_file) == (12, 10)
+    @test (inst.cu_file, inst.ci_file) == (24, 10)
     @test inst.job == [1, 1, 1, 2, 2, 2, 3, 3, 3]
     @test inst.pos == [1, 2, 3, 1, 2, 3, 1, 2, 3]
     @test inst.machine == [1, 2, 3, 1, 3, 2, 2, 1, 3]   # the file uses 0-based machines
