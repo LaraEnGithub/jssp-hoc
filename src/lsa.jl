@@ -60,15 +60,20 @@ function move_space(x::Vector{Float64}, leader::Vector{Float64}, rng::AbstractRN
 end
 
 """
-    lsa(inst; decode, n_projectiles, max_iterations, seed, probe_directions) -> (x, Evaluation)
+    lsa(inst; decode, n_projectiles, max_iterations, seed, probe_directions,
+        kappa, max_channel_time, fork_probability) -> (x, Evaluation)
 
 Runs the lightning search algorithm on `inst`. Returns the best vector of keys found
 and its evaluation. `decode` turns a vector of keys into an operation chain.
 If `probe_directions` is false, the directions of the leader are drawn at random
 each iteration instead of probing every key.
+`kappa` scales the step of the leader, every `max_channel_time` iterations the worst
+projectile becomes a copy of the best, and `fork_probability` is the chance of also
+trying the opposite position after an accepted move.
 """
 function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 75,
-             max_iterations::Int = 1000, seed::Int = 67, probe_directions::Bool = false)
+             max_iterations::Int = 1000, seed::Int = 67, probe_directions::Bool = false,
+             kappa::Float64 = 0.01, max_channel_time::Int = 10, fork_probability::Float64 = 0.01)
     rng = Xoshiro(seed)
     f(x) = evaluate(inst, decode(inst, x)).f
 
@@ -78,9 +83,9 @@ function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 75
     channel_time = 0
 
     for t in 1:max_iterations
-        # every 10 iterations the worst projectile is replaced by a copy of the best
+        # every max_channel_time iterations the worst projectile is replaced by a copy of the best
         channel_time += 1
-        if channel_time >= 10
+        if channel_time >= max_channel_time
             worst, best = argmax(F), argmin(F)
             X[worst], F[worst] = copy(X[best]), F[best]
             channel_time = 0
@@ -93,7 +98,7 @@ function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 75
         else
             rand!(rng, dir, [-1, 1])
         end
-        sigma = energy(t, max_iterations) * 0.01
+        sigma = energy(t, max_iterations) * kappa
 
         for i in eachindex(X)
             if X[i] == leader
@@ -106,7 +111,7 @@ function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 75
             if f_new < F[i]
                 X[i], F[i] = x_new, f_new
                 # forking: sometimes also try the opposite position
-                if rand(rng) < 0.01
+                if rand(rng) < fork_probability
                     x_opp = 1 .- x_new
                     f_opp = f(x_opp)
                     if f_opp < F[i]
