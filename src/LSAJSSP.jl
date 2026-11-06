@@ -13,6 +13,7 @@ export machine_chain, machine_next, makespan_and_cycles
 export Workspace, machine_next!, makespan_and_cycles!
 export Evaluation, cost, evaluate, evaluate!
 export decode_operations, decode_repetition, decode_operations!, decode_repetition!, inplace_decoder
+export decode_active, decode_active!
 export lsa
 
 end
