@@ -35,3 +35,14 @@ function evaluate(inst::Instance, op_chain::Vector{Int})
     makespan, cycle_nodes = makespan_and_cycles(inst, mnext)
     return Evaluation(cost(inst, makespan, cycle_nodes), makespan, cycle_nodes)
 end
+
+"""
+    evaluate!(ws, inst, op_chain) -> Evaluation
+
+`evaluate` without allocating.
+"""
+function evaluate!(ws::Workspace, inst::Instance, op_chain::Vector{Int})
+    mnext = machine_next!(ws, inst, op_chain)
+    makespan, cycle_nodes = makespan_and_cycles!(ws, inst, mnext)
+    return Evaluation(cost(inst, makespan, cycle_nodes), makespan, cycle_nodes)
+end

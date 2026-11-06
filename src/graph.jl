@@ -32,6 +32,91 @@ function machine_next(inst::Instance, mchain::Vector{Vector{Int}})
 end
 
 """
+Buffers reused by every evaluation, so that evaluating allocates nothing.
+Not to be shared between threads.
+"""
+struct Workspace
+    order::Vector{Int}
+    scratch::Vector{Int}
+    chain::Vector{Int}
+    seen::Vector{Int}
+    last::Vector{Int}
+    mnext::Vector{Int}
+    degree::Vector{Int}
+    finish::Vector{Int}
+    queue::Vector{Int}
+end
+
+function Workspace(inst::Instance)
+    ops() = Vector{Int}(undef, inst.n_ops)
+    return Workspace(ops(), ops(), ops(), Vector{Int}(undef, inst.n), Vector{Int}(undef, inst.m),
+                     ops(), ops(), ops(), ops())
+end
+
+"""
+    machine_next!(ws, inst, op_chain) -> ws.mnext
+
+`machine_next(inst, machine_chain(inst, op_chain))` without allocating.
+"""
+function machine_next!(ws::Workspace, inst::Instance, op_chain::Vector{Int})
+    fill!(ws.last, 0)
+    fill!(ws.mnext, 0)
+    for u in op_chain
+        k = inst.machine[u]
+        p = ws.last[k]
+        p != 0 && (ws.mnext[p] = u)
+        ws.last[k] = u
+    end
+    return ws.mnext
+end
+
+job_next(inst::Instance, u::Int) = inst.pos[u] < inst.m ? u + 1 : 0
+
+"""
+    makespan_and_cycles!(ws, inst, mnext) -> (makespan, cycle_nodes)
+
+`makespan_and_cycles` without allocating.
+"""
+function makespan_and_cycles!(ws::Workspace, inst::Instance, mnext::Vector{Int})
+    degree, finish, queue = ws.degree, ws.finish, ws.queue
+    fill!(degree, 0)
+    fill!(finish, 0)
+
+    for u in 1:inst.n_ops
+        v = job_next(inst, u)
+        v != 0 && (degree[v] += 1)
+        v = mnext[u]
+        v != 0 && (degree[v] += 1)
+    end
+
+    tail = 0
+    for u in 1:inst.n_ops
+        if degree[u] == 0
+            tail += 1
+            queue[tail] = u
+            finish[u] = inst.time[u]
+        end
+    end
+
+    head = 1
+    while head <= tail
+        u = queue[head]
+        head += 1
+        for v in (job_next(inst, u), mnext[u])
+            v == 0 && continue
+            finish[v] = max(finish[v], finish[u] + inst.time[v])
+            degree[v] -= 1
+            if degree[v] == 0
+                tail += 1
+                queue[tail] = v
+            end
+        end
+    end
+
+    return maximum(finish), count(d -> d > 0, degree)
+end
+
+"""
     makespan_and_cycles(inst, mnext) -> (makespan, cycle_nodes)
 
 Runs Kahn's algorithm on the graph where each operation points to the next one of
@@ -43,37 +128,4 @@ are in a cycle or wait for one; the solution is feasible exactly when it is 0.
 `makespan` is the largest finish time reached. For an infeasible solution it only
 counts the operations reached before the deadlock, so it can even be 0.
 """
-function makespan_and_cycles(inst::Instance, mnext::Vector{Int})
-    # the next operation of the same job, or 0 if u is the last one
-    job_next(u) = inst.pos[u] < inst.m ? u + 1 : 0
-
-    degree = zeros(Int, inst.n_ops)
-    for u in 1:inst.n_ops
-        for v in (job_next(u), mnext[u])
-            v != 0 && (degree[v] += 1)
-        end
-    end
-
-    finish = zeros(Int, inst.n_ops)
-    queue = Int[]
-    for u in 1:inst.n_ops
-        if degree[u] == 0
-            push!(queue, u)
-            finish[u] = inst.time[u]
-        end
-    end
-
-    while !isempty(queue)
-        u = popfirst!(queue)
-        for v in (job_next(u), mnext[u])
-            v == 0 && continue
-            finish[v] = max(finish[v], finish[u] + inst.time[v])
-            degree[v] -= 1
-            degree[v] == 0 && push!(queue, v)
-        end
-    end
-
-    makespan = maximum(finish)
-    cycle_nodes = count(d -> d > 0, degree)
-    return makespan, cycle_nodes
-end
+makespan_and_cycles(inst::Instance, mnext::Vector{Int}) = makespan_and_cycles!(Workspace(inst), inst, mnext)

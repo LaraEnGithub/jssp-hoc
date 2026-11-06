@@ -41,22 +41,29 @@ function update_directions!(dir::Vector{Int}, leader::Vector{Float64}, f_leader:
 end
 
 """
-    move_leader(leader, dir, sigma, rng) -> Vector{Float64}
+    move_leader!(new, leader, dir, sigma, rng)
 
-New position of the leader: each key takes a normal step of size `sigma` in its direction.
+Writes into `new` the new position of the leader: each key takes a normal step of
+size `sigma` in its direction.
 """
-function move_leader(leader::Vector{Float64}, dir::Vector{Int}, sigma::Float64, rng::AbstractRNG)
-    return [leader[d] + dir[d] * abs(sigma * randn(rng)) for d in eachindex(leader)]
+function move_leader!(new::Vector{Float64}, leader::Vector{Float64}, dir::Vector{Int}, sigma::Float64, rng::AbstractRNG)
+    for d in eachindex(leader)
+        new[d] = leader[d] + dir[d] * abs(sigma * randn(rng))
+    end
+    return new
 end
 
 """
-    move_space(x, leader, rng) -> Vector{Float64}
+    move_space!(new, x, leader, rng)
 
-New position of a projectile that is not the leader: each key jumps toward the
-leader's key, a random distance whose mean is the distance between them.
+Writes into `new` the new position of a projectile that is not the leader: each key
+jumps toward the leader's key, a random distance whose mean is the distance between them.
 """
-function move_space(x::Vector{Float64}, leader::Vector{Float64}, rng::AbstractRNG)
-    return [x[d] + (leader[d] - x[d]) * randexp(rng) for d in eachindex(x)]
+function move_space!(new::Vector{Float64}, x::Vector{Float64}, leader::Vector{Float64}, rng::AbstractRNG)
+    for d in eachindex(x)
+        new[d] = x[d] + (leader[d] - x[d]) * randexp(rng)
+    end
+    return new
 end
 
 """
@@ -75,24 +82,29 @@ function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 75
              max_iterations::Int = 1000, seed::Int = 67, probe_directions::Bool = false,
              kappa::Float64 = 0.01, max_channel_time::Int = 10, fork_probability::Float64 = 0.01)
     rng = Xoshiro(seed)
-    f(x) = evaluate(inst, decode(inst, x)).f
+    ws = Workspace(inst)
+    decode! = inplace_decoder(decode)
+    f(x) = evaluate!(ws, inst, decode!(ws, inst, x)).f
 
     X = [rand(rng, inst.n_ops) for _ in 1:n_projectiles]   # projectiles
     F = [f(x) for x in X]                                   # their costs
     dir = rand(rng, [-1, 1], inst.n_ops)
     channel_time = 0
+    leader = Vector{Float64}(undef, inst.n_ops)
+    x_new = Vector{Float64}(undef, inst.n_ops)
 
     for t in 1:max_iterations
         # every max_channel_time iterations the worst projectile is replaced by a copy of the best
         channel_time += 1
         if channel_time >= max_channel_time
             worst, best = argmax(F), argmin(F)
-            X[worst], F[worst] = copy(X[best]), F[best]
+            copyto!(X[worst], X[best])
+            F[worst] = F[best]
             channel_time = 0
         end
 
         l = argmin(F)
-        leader = copy(X[l])
+        copyto!(leader, X[l])
         if probe_directions
             update_directions!(dir, leader, F[l], f)
         else
@@ -102,20 +114,22 @@ function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 75
 
         for i in eachindex(X)
             if X[i] == leader
-                x_new = move_leader(leader, dir, sigma, rng)
+                move_leader!(x_new, leader, dir, sigma, rng)
             else
-                x_new = move_space(X[i], leader, rng)
+                move_space!(x_new, X[i], leader, rng)
             end
             keep_in_bounds!(x_new, rng)
             f_new = f(x_new)
             if f_new < F[i]
-                X[i], F[i] = x_new, f_new
+                copyto!(X[i], x_new)
+                F[i] = f_new
                 # forking: sometimes also try the opposite position
                 if rand(rng) < fork_probability
                     x_opp = 1 .- x_new
                     f_opp = f(x_opp)
                     if f_opp < F[i]
-                        X[i], F[i] = x_opp, f_opp
+                        copyto!(X[i], x_opp)
+                        F[i] = f_opp
                     end
                 end
             end

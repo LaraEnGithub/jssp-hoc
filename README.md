@@ -47,6 +47,15 @@ the progress to standard error:
 julia --project scripts/experiment.jl instances/JSSP_40_40.txt --seeds 30 > results/seeds.csv
 ```
 
+The seeds run in parallel on the threads Julia is started with (`-t auto` uses every
+core). Choose them with `--seeds k` (1 to k), `--random k` (k random seeds, written in
+the CSV header as `# seed_list=...`) or `--seed-list a,b,c` (to repeat a run):
+
+```bash
+julia --project -t auto scripts/experiment.jl instances/JSSP_40_40.txt --random 30 > results/random.csv
+julia --project -t auto scripts/experiment.jl instances/JSSP_40_40.txt --seed-list 386332240,602326403,... > results/again.csv
+```
+
 ### Analysis
 
 Code goes in [analysis/](analysis); anything the programs write goes in `results/`.
