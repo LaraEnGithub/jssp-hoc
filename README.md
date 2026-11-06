@@ -56,6 +56,8 @@ julia --project -t auto scripts/experiment.jl instances/JSSP_40_40.txt --random 
 julia --project -t auto scripts/experiment.jl instances/JSSP_40_40.txt --seed-list 386332240,602326403,... > results/again.csv
 ```
 
+The decoder is chosen with `--decoder active` (default), `repetition` or `operations`.
+
 ### Analysis
 
 Code goes in [analysis/](analysis); anything the programs write goes in `results/`.
