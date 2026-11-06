@@ -74,14 +74,15 @@ Runs the lightning search algorithm on `inst`. Returns the best vector of keys f
 and its evaluation. `decode` turns a vector of keys into an operation chain.
 If `probe_directions` is false, the directions of the leader are drawn at random
 each iteration instead of probing every key.
-`kappa` scales the step of the leader, every `max_channel_time` iterations the worst
+`kappa` scales the step of the leader (4 / number of operations by default), every `max_channel_time` iterations the worst
 projectile becomes a copy of the best, and `fork_probability` is the chance of also
 trying the opposite position after an accepted move.
 """
-function lsa(inst::Instance; decode = decode_operations, n_projectiles::Int = 75,
-             max_iterations::Int = 1000, seed::Int = 67, probe_directions::Bool = false,
-             kappa::Float64 = 0.01, max_channel_time::Int = 10, fork_probability::Float64 = 0.01)
+function lsa(inst::Instance; decode = decode_active, n_projectiles::Int = 50,
+             max_iterations::Int = 2000, seed::Int = 67, probe_directions::Bool = false,
+             kappa::Union{Float64,Nothing} = nothing, max_channel_time::Int = 10, fork_probability::Float64 = 0.01)
     rng = Xoshiro(seed)
+    kappa = something(kappa, 4 / inst.n_ops)
     ws = Workspace(inst)
     decode! = inplace_decoder(decode)
     f(x) = evaluate!(ws, inst, decode!(ws, inst, x)).f

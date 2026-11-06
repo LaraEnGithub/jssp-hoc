@@ -6,6 +6,8 @@
 using LSAJSSP
 using Random
 
+const DECODERS = Dict("repetition" => decode_repetition, "active" => decode_active, "operations" => decode_operations)
+
 function parse_seed_list(text::AbstractString)
     seeds = [tryparse(Int, s) for s in split(text, ",")]
     any(s -> s === nothing || s < 1, seeds) && return nothing
@@ -29,7 +31,7 @@ default value. Returns `nothing` if the arguments are not valid.
 """
 function parse_options(args::Vector{String})
     path, seeds = nothing, nothing
-    n, t, kappa, channel, fork = 50, 500, 0.01, 10, 0.01
+    n, t, kappa, channel, fork, decoder = 50, 2000, nothing, 10, 0.01, decode_active
     k = 1
     while k <= length(args)
         flag = args[k]
@@ -48,6 +50,10 @@ function parse_options(args::Vector{String})
             seeds === nothing || return nothing
             seeds = parse_seed_list(args[k + 1])
             seeds === nothing && return nothing
+            k += 2
+        elseif flag == "--decoder" && k < length(args)
+            haskey(DECODERS, args[k + 1]) || return nothing
+            decoder = DECODERS[args[k + 1]]
             k += 2
         elseif flag in ("--kappa", "--fork") && k < length(args)
             number = tryparse(Float64, args[k + 1])
@@ -68,7 +74,7 @@ function parse_options(args::Vector{String})
         end
     end
     path === nothing && return nothing
-    return (path = path, seeds = something(seeds, collect(1:10)), n = n, t = t, kappa = kappa, channel = channel, fork = fork)
+    return (path = path, seeds = something(seeds, collect(1:10)), n = n, t = t, kappa = kappa, channel = channel, fork = fork, decoder = decoder)
 end
 
 function main(args)
@@ -76,26 +82,26 @@ function main(args)
     if options === nothing
         println(stderr, "usage: julia --project -t auto scripts/experiment.jl <instance.txt> ",
                 "[--seeds k | --random k | --seed-list a,b,c] ",
-                "[--n N] [--t T] [--kappa κ] [--channel c] [--fork p]")
+                "[--n N] [--t T] [--kappa κ] [--channel c] [--fork p] [--decoder repetition|active|operations]")
         exit(1)
     end
 
     inst = read_instance(options.path)
     # a tiny run first, so that compiling does not count in the time of seed 1
-    lsa(inst; decode = decode_repetition, n_projectiles = 2, max_iterations = 2, probe_directions = false)
+    lsa(inst; decode = options.decoder, n_projectiles = 2, max_iterations = 2, probe_directions = false)
 
     runs = length(options.seeds)
     Threads.nthreads() == 1 && println(stderr, "warning: one thread; start Julia with -t auto to run in parallel")
 
     println("# $(inst.name) runs=$runs threads=$(Threads.nthreads()) n=$(options.n) t=$(options.t) ",
-            "kappa=$(options.kappa) channel=$(options.channel) fork=$(options.fork) decoder=repetition probe=false")
+            "kappa=$(something(options.kappa, 4 / inst.n_ops)) channel=$(options.channel) fork=$(options.fork) decoder=$(nameof(options.decoder)) probe=false")
     println("# seed_list=", join(options.seeds, ","))
     println("seed,makespan,cycles,cost,seconds")
 
     output = ReentrantLock()
     done = Threads.Atomic{Int}(0)
     Threads.@threads :dynamic for seed in options.seeds
-        seconds = @elapsed x, e = lsa(inst; decode = decode_repetition, probe_directions = false,
+        seconds = @elapsed x, e = lsa(inst; decode = options.decoder, probe_directions = false,
                                       n_projectiles = options.n, max_iterations = options.t, seed = seed,
                                       kappa = options.kappa, max_channel_time = options.channel,
                                       fork_probability = options.fork)

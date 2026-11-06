@@ -36,7 +36,7 @@ function main(args)
     end
 
     inst = read_instance(paths[1])
-    decode = decode_repetition
+    decode = decode_active
     x, e = lsa(inst; decode = decode, probe_directions = false)
     if print_solution
         println(format_solution(inst, machine_chain(inst, decode(inst, x))))
