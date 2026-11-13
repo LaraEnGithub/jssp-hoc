@@ -1,5 +1,5 @@
 # Usage:
-#   julia --project scripts/solve.jl instances/example_3x3.txt [--solution]
+#   julia --project scripts/solve.jl instances/example_3x3.txt [--seed s] [--solution]
 
 using LSAJSSP
 
@@ -30,16 +30,22 @@ end
 function main(args)
     print_solution = "--solution" in args
     paths = filter(a -> a != "--solution", args)
+    seed = 67
+    k = findfirst(==("--seed"), paths)
+    if k !== nothing && k < length(paths) && tryparse(Int, paths[k + 1]) !== nothing
+        seed = parse(Int, paths[k + 1])
+        paths = paths[setdiff(eachindex(paths), k:k + 1)]
+    end
     if length(paths) != 1
-        println(stderr, "usage: julia --project scripts/solve.jl <instance.txt> [--solution]")
+        println(stderr, "usage: julia --project scripts/solve.jl <instance.txt> [--seed s] [--solution]")
         exit(1)
     end
 
     inst = read_instance(paths[1])
-    decode = decode_active
-    x, e = lsa(inst; decode = decode, probe_directions = false)
+    chain, _ = dlsa(inst; seed = seed)
+    chain, e = local_sweep(inst, chain)
     if print_solution
-        println(format_solution(inst, machine_chain(inst, decode(inst, x))))
+        println(format_solution(inst, machine_chain(inst, chain)))
     end
     println(format_summary(inst, e))
 end
