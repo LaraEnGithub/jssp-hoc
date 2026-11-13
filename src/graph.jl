@@ -45,6 +45,7 @@ struct Workspace
     degree::Vector{Int}
     finish::Vector{Int}
     queue::Vector{Int}
+    mprev::Vector{Int}
     job_ready::Vector{Int}
     mach_ready::Vector{Int}
 end
@@ -52,7 +53,7 @@ end
 function Workspace(inst::Instance)
     ops() = Vector{Int}(undef, inst.n_ops)
     return Workspace(ops(), ops(), ops(), Vector{Int}(undef, inst.n), Vector{Int}(undef, inst.m),
-                     ops(), ops(), ops(), ops(),
+                     ops(), ops(), ops(), ops(), ops(),
                      Vector{Int}(undef, inst.n), Vector{Int}(undef, inst.m))
 end
 

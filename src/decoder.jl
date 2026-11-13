@@ -40,13 +40,12 @@ function decode_repetition!(ws::Workspace, inst::Instance, x::Vector{Float64})
 end
 
 """
-    decode_active!(ws, inst, x) -> ws.chain
+    decode_hybrid!(ws, inst, x, delay) -> ws.chain
 
-Builds an active schedule (Giffler-Thompson): at each step it takes the operation that
-could finish first, and among the operations that could start on its machine before that
-time, the one with the smallest key. The solution is always feasible.
+Hybrid schedule builder (Bierwirth and Mattfeld, 1999). `delay = 1` gives an active
+schedule (Giffler-Thompson) and `delay = 0` a non-delay one. Always feasible.
 """
-function decode_active!(ws::Workspace, inst::Instance, x::Vector{Float64})
+function decode_hybrid!(ws::Workspace, inst::Instance, x::Vector{Float64}, delay::Float64)
     next = ws.seen
     fill!(next, 1)
     fill!(ws.job_ready, 0)
@@ -63,11 +62,21 @@ function decode_active!(ws::Workspace, inst::Instance, x::Vector{Float64})
         end
 
         k = inst.machine[best_op]
-        pick = best_op
+        first_start = typemax(Int)
         for i in 1:inst.n
             next[i] > inst.m && continue
             u = (i - 1) * inst.m + next[i]
-            inst.machine[u] == k && max(ws.job_ready[i], ws.mach_ready[k]) < best_end && x[u] < x[pick] && (pick = u)
+            inst.machine[u] == k && (first_start = min(first_start, max(ws.job_ready[i], ws.mach_ready[k])))
+        end
+
+        limit = first_start + delay * (best_end - first_start)
+        pick = 0
+        for i in 1:inst.n
+            next[i] > inst.m && continue
+            u = (i - 1) * inst.m + next[i]
+            inst.machine[u] == k || continue
+            start = max(ws.job_ready[i], ws.mach_ready[k])
+            (start == first_start || start < limit) && (pick == 0 || x[u] < x[pick]) && (pick = u)
         end
 
         i = inst.job[pick]
@@ -78,8 +87,21 @@ function decode_active!(ws::Workspace, inst::Instance, x::Vector{Float64})
     return ws.chain
 end
 
+"""
+    HybridDecoder(delay)
+
+`decode_hybrid!` with a fixed `delay`, usable as `decode` in `lsa`.
+"""
+struct HybridDecoder
+    delay::Float64
+end
+
+(d::HybridDecoder)(inst::Instance, x::Vector{Float64}) = copy(decode_hybrid!(Workspace(inst), inst, x, d.delay))
+
+decode_active!(ws::Workspace, inst::Instance, x::Vector{Float64}) = decode_hybrid!(ws, inst, x, 1.0)
 decode_active(inst::Instance, x::Vector{Float64}) = copy(decode_active!(Workspace(inst), inst, x))
 
 inplace_decoder(::typeof(decode_operations)) = decode_operations!
 inplace_decoder(::typeof(decode_repetition)) = decode_repetition!
 inplace_decoder(::typeof(decode_active)) = decode_active!
+inplace_decoder(d::HybridDecoder) = (ws, inst, x) -> decode_hybrid!(ws, inst, x, d.delay)

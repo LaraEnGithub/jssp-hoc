@@ -68,19 +68,17 @@ end
 
 """
     lsa(inst; decode, n_projectiles, max_iterations, seed, probe_directions,
-        kappa, max_channel_time, fork_probability) -> (x, Evaluation)
+        kappa, max_channel_time, channel_noise, fork_probability, sweep) -> (op_chain, Evaluation)
 
-Runs the lightning search algorithm on `inst`. Returns the best vector of keys found
-and its evaluation. `decode` turns a vector of keys into an operation chain.
-If `probe_directions` is false, the directions of the leader are drawn at random
-each iteration instead of probing every key.
-`kappa` scales the step of the leader (4 / number of operations by default), every `max_channel_time` iterations the worst
-projectile becomes a copy of the best, and `fork_probability` is the chance of also
-trying the opposite position after an accepted move.
+Runs the lightning search algorithm on `inst` and returns the best operation chain found.
+`decode` turns a vector of keys into an operation chain. If `sweep` is true the result is
+improved with `local_sweep`. `channel_noise` is the probability that each key of the channel
+copy is drawn again. If `probe_directions` is false the leader's directions are random.
 """
-function lsa(inst::Instance; decode = decode_active, n_projectiles::Int = 50,
+function lsa(inst::Instance; decode = HybridDecoder(0.0), n_projectiles::Int = 50,
              max_iterations::Int = 2000, seed::Int = 67, probe_directions::Bool = false,
-             kappa::Union{Float64,Nothing} = nothing, max_channel_time::Int = 10, fork_probability::Float64 = 0.01)
+             kappa::Union{Float64,Nothing} = nothing, max_channel_time::Int = 10, fork_probability::Float64 = 0.01,
+             channel_noise::Float64 = 0.2, sweep::Bool = true)
     rng = Xoshiro(seed)
     kappa = something(kappa, 4 / inst.n_ops)
     ws = Workspace(inst)
@@ -101,6 +99,12 @@ function lsa(inst::Instance; decode = decode_active, n_projectiles::Int = 50,
             worst, best = argmax(F), argmin(F)
             copyto!(X[worst], X[best])
             F[worst] = F[best]
+            if channel_noise > 0
+                for d in eachindex(X[worst])
+                    rand(rng) < channel_noise && (X[worst][d] = rand(rng))
+                end
+                F[worst] = f(X[worst])
+            end
             channel_time = 0
         end
 
@@ -138,5 +142,6 @@ function lsa(inst::Instance; decode = decode_active, n_projectiles::Int = 50,
     end
 
     best = argmin(F)
-    return X[best], evaluate(inst, decode(inst, X[best]))
+    chain = decode(inst, X[best])
+    return sweep ? local_sweep(inst, chain) : (chain, evaluate(inst, chain))
 end
